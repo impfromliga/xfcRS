@@ -1,0 +1,53 @@
+<style>
+body{margin:0px;background:#976;overflow:hidden}
+#cnv{width:100%;background:url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEWNa1aminezoJCCFsO5AAAAHUlEQVQI12MQm8IQFsoQGgVCS8MYlgLZSxnElgAAR0kGXbozTu0AAAAASUVORK5CYII')repeat;}
+</style>
+
+<canvas id=cnv width=320 height=192></canvas>
+<img id=fuse src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAALVBMVEURCwodICInIBY5VGhzVD1AZoRQcIqNa1Zkf5RyjaOminezoJCTq7yyxtLUwrfx0CCfAAAAk0lEQVQI12OIOJkaGhp59ijD2WnGDIymOTcY7iQLubgwms1hOGbkUlXuIpzJMFmk6t3r5Y5mDMEqq3et2lVkyhDovqvEfXcJK0OA13MnlXUQhgNLHYjh/qrEfXWJKFDx7uVVuxxMGZJFqva92+5owTDNyH3V8hLhHIaTICsUzeYy9B4zFmAwzrzJEHNnamho2NyjACXrNdU8yX9PAAAAAElFTkSuQmCC'>
+<img id=full src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAADFBMVEVAZoRQcIpkf5RyjaPsI/T3AAAAIUlEQVQI12OQ+sKQ95Ph3z6Gn1kMK9cz7NvPkL+XQX4JAIF6ClmGfg9JAAAAAElFTkSuQmCC'>
+<img id=habr src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAJAQMAAACR90e+AAAABlBMVEVzVD2Tq7yXchP7AAAAO0lEQVQI12NggIAABwEBIFWWO3e2VANDeObVW8EHgHwOkBzf7T5GIMUyadZNMxDvmuw2BgbGJgYGAQYAlBgNzMBb558AAAAASUVORK5CYII'>
+
+<script>"use strict"; // Initialization:
+    var ctx = cnv.getContext('2d');
+    ctx.drawImage(habr, 0, 0); //draw text
+    var siz = {W:cnv.width >> 3, H:cnv.height >> 3, Z:cnv.width / window.innerWidth}, //dynamic scale - ratio
+        map = ctx.getImageData(0, 0, siz.W, siz.H).data.filter( (x, i) => !(i & 3) ).map(x => x >> 7); //convert pixel data to 0-1 array
+    cnv.style.backgroundSize = (8/siz.Z)+'px '+(8/siz.Z)+'px'; //dynamic scale - background pattern
+    
+    function XFCR(map, w, h){ // "eXpansion Fast Cell - Rounded Squares"
+        for(var xfc = [], n = 0, C = map[n - 1], D; n < w * h; xfc[n++ - w - 1] ^= 0xfc30, C = D){
+            if(C ^ (D = map[n]))
+                xfc[n - w - 1] |= 0x8800,
+                xfc[n - 1] |= 0x0088;
+            if(D ^ map[n - w])
+                xfc[n - w] |= 0x202,
+                xfc[n - w - 1] |= 0x2020;
+        }
+        return xfc;
+    }
+    
+    function draw(){// View:        //(multipass - empty cell background pattern needed)
+        var sub = XFCR(map, siz.W, siz.H); // Compute sub-tiles by XFCR algorithm
+        for (var n = 0, y = 4, j = siz.H; --j; y += 8, n++){
+            for (var x = 4, S, i = siz.W; --i; x += 8, n++){
+                if((S = sub[n]) ^ 0xfc30){ //go sub-tiles 4x4 x4:
+                    if(map[n]) ctx.drawImage(fuse, S << 2 & 12, S & 12, 4, 4,   x, y, 4, 4);
+                    if(map[n+1]) ctx.drawImage(fuse, S >> 2 & 12, S >> 4 & 12, 4, 4,   x + 4, y, 4, 4);
+                    if(map[n+siz.W]) ctx.drawImage(fuse, S >> 6 & 12, S >> 8 & 12, 4, 4,   x, y + 4, 4, 4);
+                    if(map[n+siz.W+1]) ctx.drawImage(fuse, S >> 10 & 12, S >> 12 & 12, 4, 4,   x + 4, y + 4, 4, 4);
+                }else if(map[n]) ctx.drawImage(full, x, y); //full sub-tile block 4x4
+            };
+        };
+    }
+    
+    onload = window.ontouchstart = onmousedown = function(e){ //Controll:
+        e = e || window.event;
+        e.preventDefault ? e.preventDefault() : e.returnValue = false;
+        var E  = e.touches ? e.touches[0] : e,
+            n = E.pageX * siz.Z / 8 + siz.W * (E.pageY * siz.Z / 8 | 0) | 0;
+        map[n] = !map[n];
+        ctx.clearRect(0, 0, cnv.width, cnv.height);
+        draw();
+    }
+</script>
