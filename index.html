@@ -1,6 +1,6 @@
 <style>
 body{margin:0px;background:#976;overflow:hidden}
-#cnv{width:100%;background:url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEWNa1aminezoJCCFsO5AAAAHUlEQVQI12MQm8IQFsoQGgVCS8MYlgLZSxnElgAAR0kGXbozTu0AAAAASUVORK5CYII')repeat;}
+#cnv{background:url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAACVBMVEWNa1aminezoJCCFsO5AAAAHUlEQVQI12MQm8IQFsoQGgVCS8MYlgLZSxnElgAAR0kGXbozTu0AAAAASUVORK5CYII')repeat;}
 </style>
 
 <canvas id=cnv width=320 height=192></canvas>
@@ -8,13 +8,7 @@ body{margin:0px;background:#976;overflow:hidden}
 <img id=full src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAgMAAAC5YVYYAAAADFBMVEVAZoRQcIpkf5RyjaPsI/T3AAAAIUlEQVQI12OQ+sKQ95Ph3z6Gn1kMK9cz7NvPkL+XQX4JAIF6ClmGfg9JAAAAAElFTkSuQmCC'>
 <img id=habr src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAJAQMAAACR90e+AAAABlBMVEVzVD2Tq7yXchP7AAAAO0lEQVQI12NggIAABwEBIFWWO3e2VANDeObVW8EHgHwOkBzf7T5GIMUyadZNMxDvmuw2BgbGJgYGAQYAlBgNzMBb558AAAAASUVORK5CYII'>
 
-<script>"use strict"; // Initialization:
-    var ctx = cnv.getContext('2d');
-    ctx.drawImage(habr, 0, 0); //draw text
-    var siz = {W:cnv.width >> 3, H:cnv.height >> 3, Z:cnv.width / window.innerWidth}, //dynamic scale - ratio
-        map = ctx.getImageData(0, 0, siz.W, siz.H).data.filter( (x, i) => !(i & 3) ).map(x => x >> 7); //convert pixel data to 0-1 array
-    cnv.style.backgroundSize = (8/siz.Z)+'px '+(8/siz.Z)+'px'; //dynamic scale - background pattern
-    
+<script>"use strict";
     function XFCR(map, w, h){ // "eXpansion Fast Cell - Rounded Squares"
         for(var xfc = [], n = 0, C = map[n - 1], D; n < w * h; xfc[n++ - w - 1] ^= 0xfc30, C = D){
             if(C ^ (D = map[n]))
@@ -27,27 +21,35 @@ body{margin:0px;background:#976;overflow:hidden}
         return xfc;
     }
     
-    function draw(){// View:        //(multipass - empty cell background pattern needed)
-        var sub = XFCR(map, siz.W, siz.H); // Compute sub-tiles by XFCR algorithm
-        for (var n = 0, y = 4, j = siz.H; --j; y += 8, n++){
-            for (var x = 4, S, i = siz.W; --i; x += 8, n++){
+    function draw(map, w, h){// View:        //(multipass - empty cell background pattern needed)
+        var sub = XFCR(map, w, h); // Compute sub-tiles by XFCR algorithm
+        for (var n = 0, y = 4, j = h; --j; y += 8, n++){
+            for (var x = 4, S, i = w; --i; x += 8, n++){
                 if((S = sub[n]) ^ 0xfc30){ //go sub-tiles 4x4 x4:
                     if(map[n]) ctx.drawImage(fuse, S << 2 & 12, S & 12, 4, 4,   x, y, 4, 4);
                     if(map[n+1]) ctx.drawImage(fuse, S >> 2 & 12, S >> 4 & 12, 4, 4,   x + 4, y, 4, 4);
-                    if(map[n+siz.W]) ctx.drawImage(fuse, S >> 6 & 12, S >> 8 & 12, 4, 4,   x, y + 4, 4, 4);
-                    if(map[n+siz.W+1]) ctx.drawImage(fuse, S >> 10 & 12, S >> 12 & 12, 4, 4,   x + 4, y + 4, 4, 4);
+                    if(map[n+w]) ctx.drawImage(fuse, S >> 6 & 12, S >> 8 & 12, 4, 4,   x, y + 4, 4, 4);
+                    if(map[n+w+1]) ctx.drawImage(fuse, S >> 10 & 12, S >> 12 & 12, 4, 4,   x + 4, y + 4, 4, 4);
                 }else if(map[n]) ctx.drawImage(full, x, y); //full sub-tile block 4x4
             };
         };
     }
     
+    // Initialization:
+    var ctx = cnv.getContext('2d');
+    ctx.drawImage(habr, 0, 0); //draw text
+    var w = cnv.width >> 3, h = cnv.height >> 3, z = cnv.width / window.innerWidth, //calc dynamic scale - ratio
+        map = ctx.getImageData(0, 0, w, h).data.filter( (x, i) => !(i & 3) ).map(x => x >> 7); //convert pixel data to map
+    cnv.style.width = '100%'; cnv.style.backgroundSize = (8/z)+'px '+(8/z)+'px'; //dynamic scale - background pattern
+    
     onload = window.ontouchstart = onmousedown = function(e){ //Controll:
         e = e || window.event;
         e.preventDefault ? e.preventDefault() : e.returnValue = false;
         var E  = e.touches ? e.touches[0] : e,
-            n = E.pageX * siz.Z / 8 + siz.W * (E.pageY * siz.Z / 8 | 0) | 0;
+            n = E.pageX * z / 8 + w * (E.pageY * z / 8 | 0) | 0;
         map[n] = !map[n];
         ctx.clearRect(0, 0, cnv.width, cnv.height);
-        draw();
+        draw(map, w, h);
     }
 </script>
+       
